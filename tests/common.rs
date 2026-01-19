@@ -12,10 +12,15 @@ fn should_be_possible_to_get_current_thread_native_id_via_threadext() {
     use thread_priority::ThreadExt;
 
     let current = std::thread::current();
-    #[cfg(unix)]
+    #[cfg(all(unix, not(target_os = "haiku")))]
     assert_eq!(
         current.get_native_id(),
         Ok(thread_priority::unix::thread_native_id())
+    );
+    #[cfg(target_os = "haiku")]
+    assert_eq!(
+        current.get_native_id(),
+        Ok(thread_priority::haiku::thread_native_id())
     );
     #[cfg(windows)]
     assert_eq!(

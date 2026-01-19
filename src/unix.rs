@@ -55,6 +55,8 @@ fn errno() -> libc::c_int {
                 *libc::__error()
             } else if #[cfg(target_os = "vxworks")] {
                 libc::errnoGet()
+            } else if #[cfg(target_os = "haiku")] {
+                *libc::_errnop()
             } else {
                 compile_error!("Your OS is probably not supported.")
             }
@@ -73,6 +75,8 @@ fn set_errno(number: libc::c_int) {
                 *libc::__error() = number;
             } else if #[cfg(target_os = "vxworks")] {
                 let _ = libc::errnoSet(number);
+            } else if #[cfg(target_os = "haiku")] {
+                *libc::_errnop() = number;
             } else {
                 compile_error!("Your OS is probably not supported.")
             }
@@ -362,8 +366,8 @@ impl ThreadPriority {
                                 PriorityPolicyEdgeValueType::Maximum => NICENESS_MAX as libc::c_int,
                             })
                         }
-                    } else if #[cfg(any(target_os = "macos", target_os = "ios", target_os = "vxworks"))] {
-                        // macOS/iOS and VxWorks allow specifying the priority using sched params.
+                    } else if #[cfg(any(target_os = "macos", target_os = "ios", target_os = "vxworks", target_os = "haiku"))] {
+                        // macOS/iOS, VxWorks and Haiku allow specifying the priority using sched params.
                         get_edge_priority(policy)
                     } else {
                         Err(Error::Priority(
@@ -441,15 +445,16 @@ impl ThreadPriority {
                 // XNU and the derivatives allow to change the priority
                 // for the SCHED_OTHER policy.
                 // <https://www.usenix.org/legacy/publications/library/proceedings/bsdcon02/full_papers/gerbarg/gerbarg_html/index.html>
+                // Haiku also allows setting priority for SCHED_OTHER.
                 #[cfg(all(
-                    any(target_os = "macos", target_os = "ios", target_os = "vxworks"),
+                    any(target_os = "macos", target_os = "ios", target_os = "vxworks", target_os = "haiku"),
                     not(target_arch = "wasm32")
                 ))]
                 ThreadSchedulePolicy::Normal(_) => {
                     Self::to_allowed_value_for_policy(p as i32, policy).map(|v| v as u32)
                 }
                 #[cfg(not(all(
-                    any(target_os = "macos", target_os = "ios", target_os = "vxworks"),
+                    any(target_os = "macos", target_os = "ios", target_os = "vxworks", target_os = "haiku"),
                     not(target_arch = "wasm32")
                 )))]
                 ThreadSchedulePolicy::Normal(_) => {
@@ -587,13 +592,14 @@ pub fn set_thread_priority_and_policy(
         }
         _ => {
             let fixed_priority = priority.to_posix(policy)?;
-            // On VxWorks, macOS and iOS it is possible to set the priority
+            // On VxWorks, macOS, iOS and Haiku it is possible to set the priority
             // this way.
             if matches!(policy, ThreadSchedulePolicy::Realtime(_))
                 || cfg!(any(
                     target_os = "macos",
                     target_os = "ios",
-                    target_os = "vxworks"
+                    target_os = "vxworks",
+                    target_os = "haiku"
                 ))
             {
                 // If the policy is a realtime one, the priority is set via

@@ -176,6 +176,11 @@ use std::time::Duration;
 ))]
 pub use unix::*;
 
+#[cfg(target_os = "haiku")]
+pub mod haiku;
+#[cfg(target_os = "haiku")]
+pub use haiku::*;
+
 #[cfg(windows)]
 pub mod windows;
 #[cfg(windows)]
@@ -506,7 +511,7 @@ pub struct ThreadBuilder {
     stack_size: Option<usize>,
     priority: Option<ThreadPriority>,
 
-    #[cfg(unix)]
+    #[cfg(any(unix, target_os = "haiku"))]
     policy: Option<ThreadSchedulePolicy>,
 
     #[cfg(windows)]
@@ -554,9 +559,9 @@ impl ThreadBuilder {
     /// The thread's unix scheduling policy.
     ///
     /// For more information, see
-    /// [`crate::unix::ThreadSchedulePolicy`] and [`crate::unix::set_thread_priority_and_policy`].
-    #[cfg(unix)]
-    pub fn policy<VALUE: Into<unix::ThreadSchedulePolicy>>(mut self, value: VALUE) -> Self {
+    /// [`ThreadSchedulePolicy`] and [`set_thread_priority_and_policy`].
+    #[cfg(any(unix, target_os = "haiku"))]
+    pub fn policy<VALUE: Into<ThreadSchedulePolicy>>(mut self, value: VALUE) -> Self {
         self.policy = Some(value.into());
         self
     }
@@ -595,7 +600,7 @@ impl ThreadBuilder {
         self
     }
 
-    #[cfg(unix)]
+    #[cfg(any(unix, target_os = "haiku"))]
     fn spawn_wrapper<F, T>(self, f: F) -> impl FnOnce() -> T
     where
         F: FnOnce(Result<(), Error>) -> T,
